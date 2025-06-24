@@ -1,0 +1,474 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FinMark Corp - Interactive Network Simulator</title>
+    
+    <!-- Tailwind CSS for styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Google Fonts: Inter and Fira Code -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Fira+Code:wght@400;500;600&display=swap" rel="stylesheet">
+
+    <!-- FontAwesome for icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <style>
+        :root {
+            --bg-dark: #0d1117;
+            --bg-med: #161b22;
+            --border-color: #30363d;
+            --text-light: #c9d1d9;
+            --text-med: #8b949e;
+            --accent-blue: #58a6ff;
+            --accent-green: #3fb950;
+            --accent-red: #f85149;
+            --accent-purple: #bc8cff;
+            --accent-yellow: #e3b341;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-dark);
+            color: var(--text-light);
+        }
+        
+        #network-diagram {
+            position: relative;
+            background-color: var(--bg-med);
+            border-radius: 1rem;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.3);
+            overflow: hidden;
+            background-image:
+                radial-gradient(circle at 1px 1px, rgba(201, 209, 217, 0.1) 1px, transparent 0),
+                radial-gradient(circle at 15px 15px, rgba(201, 209, 217, 0.1) 1px, transparent 0);
+            background-size: 30px 30px;
+        }
+
+        .zone {
+            border: 2px dashed var(--border-color);
+            border-radius: 0.75rem;
+            position: absolute;
+        }
+        
+        .zone-title {
+            position: absolute;
+            top: -0.8rem;
+            left: 1.5rem;
+            background-color: var(--bg-dark);
+            padding: 0.25rem 0.75rem;
+            font-weight: 600;
+            color: var(--text-med);
+            border-radius: 9999px;
+            border: 2px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .device {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+            padding: 0.75rem;
+            border-radius: 0.5rem;
+            background-color: var(--bg-med);
+            border: 1px solid var(--border-color);
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            position: absolute;
+            z-index: 10;
+        }
+
+        .device:hover {
+            transform: translateY(-5px) scale(1.05);
+            z-index: 20;
+            box-shadow: 0 0 20px var(--accent-blue);
+            border-color: var(--accent-blue);
+        }
+
+        .device-icon {
+            width: 40px;
+            height: 40px;
+            color: var(--text-light);
+        }
+        
+        .device-label {
+            font-family: 'Fira Code', monospace;
+            font-size: 12px;
+            font-weight: 500;
+            margin-top: 0.5rem;
+            text-align: center;
+            color: var(--text-light);
+        }
+        .device-info {
+            font-size: 10px;
+            color: var(--text-med);
+        }
+
+        .cable {
+            position: absolute;
+            stroke-width: 2.5px;
+            stroke-linecap: round;
+            pointer-events: none;
+            z-index: 5;
+        }
+        
+        .cable-trunk { stroke: var(--accent-blue); }
+        .cable-access { stroke: var(--accent-green); }
+        .cable-routed { stroke: var(--accent-red); }
+        .cable-internet { stroke: var(--text-med); }
+
+        .packet {
+            position: absolute;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background-color: #f97316;
+            border: 2px solid white;
+            box-shadow: 0 0 12px #f97316, 0 0 24px #f97316;
+            z-index: 50;
+            pointer-events: none;
+            opacity: 0;
+            filter: blur(1px);
+        }
+        
+        #info-modal {
+            background-color: rgba(13, 17, 23, 0.8);
+            backdrop-filter: blur(5px);
+        }
+        #info-modal pre {
+            font-family: 'Fira Code', monospace;
+            background-color: #0d1117;
+            color: #e5e7eb;
+            padding: 1rem;
+            border-radius: 0.5rem;
+            overflow-x: auto;
+            max-height: 45vh;
+            border: 1px solid var(--border-color);
+        }
+
+        .modal-tab {
+            padding: 0.5rem 1rem;
+            cursor: pointer;
+            border-bottom: 3px solid transparent;
+            color: var(--text-med);
+        }
+        .modal-tab.active {
+            color: var(--accent-blue);
+            border-bottom-color: var(--accent-blue);
+            font-weight: 600;
+        }
+        .modal-tab-content { display: none; }
+        .modal-tab-content.active { display: block; }
+    </style>
+</head>
+<body class="p-4 sm:p-6 lg:p-8">
+
+    <main class="max-w-screen-xl mx-auto">
+        <header class="text-center mb-8">
+            <h1 class="text-3xl sm:text-4xl font-bold text-white">FinMark Corp Interactive Network Simulator</h1>
+            <p class="text-md sm:text-lg text-gray-400 mt-2">A dynamic and interactive guide to the proposed enterprise network architecture.</p>
+        </header>
+
+        <section class="bg-gray-900/50 p-6 rounded-xl shadow-md mb-8 border border-gray-700">
+            <div class="flex flex-wrap justify-between items-center gap-4">
+                <div id="controls">
+                    <button id="run-simulation-btn" class="bg-blue-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-700 transition-all shadow-lg hover:shadow-blue-500/50 flex items-center gap-2"><i class="fa-solid fa-play"></i> Run All Tests</button>
+                </div>
+                <div id="legend" class="flex flex-wrap items-center gap-x-6 gap-y-2 text-sm text-gray-400">
+                    <span class="flex items-center"><svg width="20" height="10"><line x1="0" y1="5" x2="20" y2="5" class="cable cable-access"></line></svg>&nbsp;Access</span>
+                    <span class="flex items-center"><svg width="20" height="10"><line x1="0" y1="5" x2="20" y2="5" class="cable cable-trunk"></line></svg>&nbsp;Trunk</span>
+                    <span class="flex items-center"><svg width="20" height="10"><line x1="0" y1="5" x2="20" y2="5" class="cable cable-routed"></line></svg>&nbsp;Routed</span>
+                    <span class="flex items-center"><svg width="20" height="10"><line x1="0" y1="5" x2="20" y2="5" class="cable cable-internet"></line></svg>&nbsp;Internet</span>
+                </div>
+            </div>
+             <div id="simulation-status" class="mt-4 text-center text-gray-300 font-medium h-6"></div>
+        </section>
+
+        <!-- Main Network Diagram Area -->
+        <div id="network-diagram" class="w-full p-8" style="height: 900px;">
+            <svg id="cable-layer" class="absolute top-0 left-0 w-full h-full"></svg>
+            
+            <!-- Zones -->
+            <div id="enterprise-campus" class="zone" style="top: 20px; left: 20px; bottom: 20px; width: 65%;">
+                <div class="zone-title"><i class="fa-solid fa-building"></i> Enterprise Campus</div>
+            </div>
+            <div id="enterprise-edge" class="zone" style="top: 20px; right: 20px; width: 28%; height: 300px;">
+                <div class="zone-title"><i class="fa-solid fa-shield-halved"></i> Enterprise Edge</div>
+            </div>
+            <div id="internet-zone" class="zone" style="top: 350px; right: 20px; width: 28%; height: 150px;">
+                <div class="zone-title"><i class="fa-solid fa-globe"></i> WAN / Internet</div>
+            </div>
+        </div>
+    </main>
+    
+    <!-- Modal for displaying device info -->
+    <div id="info-modal" class="fixed inset-0 flex items-center justify-center p-4 z-[100] hidden">
+        <div class="bg-gray-900 border border-gray-700 rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col">
+            <div class="p-5 border-b border-gray-700 flex justify-between items-center">
+                <h2 id="modal-title" class="text-2xl font-bold text-white">Device Information</h2>
+                <button id="close-modal-btn" class="text-gray-500 hover:text-red-500 text-3xl transition-colors">&times;</button>
+            </div>
+            <div class="p-6 flex-grow overflow-y-auto">
+                <div id="modal-tabs" class="flex border-b border-gray-700 mb-4 text-sm font-medium">
+                    <button class="modal-tab active" data-target="modal-tab-info">Info</button>
+                    <button class="modal-tab" data-target="modal-tab-config">Configuration</button>
+                    <button class="modal-tab" data-target="modal-tab-interfaces">Interfaces</button>
+                    <button class="modal-tab" data-target="modal-tab-verification">Verification</button>
+                </div>
+                <div id="modal-tab-content-container">
+                    <div id="modal-tab-info" class="modal-tab-content active"></div>
+                    <div id="modal-tab-config" class="modal-tab-content">
+                         <div class="relative">
+                            <pre><code id="modal-config-code"></code></pre>
+                            <button id="copy-config-btn" class="absolute top-2 right-2 bg-gray-600 text-white px-3 py-1 text-xs rounded hover:bg-gray-700 transition">Copy</button>
+                         </div>
+                    </div>
+                    <div id="modal-tab-interfaces" class="modal-tab-content"></div>
+                    <div id="modal-tab-verification" class="modal-tab-content"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+    document.addEventListener('DOMContentLoaded', () => {
+
+        const deviceData = {
+            // Enterprise Edge & Internet
+            'internet-cloud': { name: 'Internet', type: 'Cloud', zone: 'internet-zone', icon: 'cloud', position: { top: '50%', left: '50%' },
+                info: 'Represents the public Internet and the ISP.', config: 'Logical representation.', verification: 'ping 8.8.8.8',
+                connections: [{ local_inf: 'Ethernet6', remote_dev: 'firewall', remote_inf: 'E0/0' }] },
+            'firewall': { name: 'FinMark-Firewall', type: 'ASA 5505', zone: 'enterprise-edge', icon: 'firewall', position: { top: '50%', left: '50%' },
+                info: 'The ASA Firewall is the primary security gateway, inspecting all traffic between the internal network and the Internet.',
+                config: `! ASA 5505 Configuration\nhostname FinMark-Firewall\ninterface ethernet 0/0\n nameif outside\n security-level 0\n ip address 203.0.113.1 255.255.255.0\n no shutdown\ninterface ethernet 0/1\n nameif inside\n security-level 100\n ip address 192.168.100.1 255.255.255.0\n no shutdown\nroute outside 0.0.0.0 0.0.0.0 203.0.113.254\nobject network INTERNAL_NETWORKS\n subnet 10.0.0.0 255.255.0.0\n nat (inside,outside) dynamic interface\naccess-list OUTSIDE_IN extended permit tcp any host 10.0.50.10 eq www\naccess-list OUTSIDE_IN extended permit tcp any host 10.0.50.10 eq https\naccess-group OUTSIDE_IN in interface outside`,
+                verification: 'show run | include access-list\nshow xlate\nshow conn',
+                connections: [
+                    { local_inf: 'E0/0 (Outside)', remote_dev: 'internet-cloud', remote_inf: 'Ethernet6' },
+                    { local_inf: 'E0/1 (Inside)', remote_dev: 'core-switch', remote_inf: 'G0/24' }
+                ]
+            },
+            // Campus Core
+            'core-switch': { name: 'FinMark-Core-Switch', type: 'Catalyst 3560', zone: 'enterprise-campus', icon: 'switch-l3', position: { top: '15%', left: '50%' },
+                info: 'The Layer 3 Core Switch acts as the backbone, handling high-speed routing between all VLANs.',
+                config: `! Core Switch Configuration\nhostname FinMark-Core-Switch\nip routing\n\nvlan 10\n name Finance\nvlan 20\n name HR\nvlan 30\n name Operations\nvlan 40\n name IT\nvlan 50\n name DMZ\n\ninterface Vlan10\n ip address 10.0.10.1 255.255.255.0\ninterface Vlan20\n ip address 10.0.20.1 255.255.255.0\ninterface Vlan30\n ip address 10.0.30.1 255.255.255.0\ninterface Vlan40\n ip address 10.0.40.1 255.255.255.0\ninterface Vlan50\n ip address 10.0.50.1 255.255.255.0\n\ninterface range g0/1 - 5\n switchport mode trunk\n\ninterface g0/24\n no switchport\n ip address 192.168.100.2 255.255.255.0\n\nip route 0.0.0.0 0.0.0.0 192.168.100.1`,
+                verification: 'show vlan brief\nshow interfaces trunk\nshow ip route',
+                connections: [
+                    { local_inf: 'G0/1', remote_dev: 'finance-switch', remote_inf: 'G0/1' }, { local_inf: 'G0/2', remote_dev: 'hr-switch', remote_inf: 'G0/1' },
+                    { local_inf: 'G0/3', remote_dev: 'ops-switch', remote_inf: 'G0/1' }, { local_inf: 'G0/4', remote_dev: 'it-switch', remote_inf: 'G0/1' },
+                    { local_inf: 'G0/5', remote_dev: 'dmz-switch', remote_inf: 'G0/1' }, { local_inf: 'G0/24', remote_dev: 'firewall', remote_inf: 'E0/1' }
+                ]
+            },
+            // Campus Distribution/Access
+            'finance-switch': { name: 'Finance-SW', type: '2960', zone: 'enterprise-campus', icon: 'switch', position: { top: '40%', left: '15%' },
+                info: 'Access switch for Finance (VLAN 10)', config: `hostname FinMark-Finance-SW\ninterface range f0/1 - 23\n switchport mode access\n switchport access vlan 10\ninterface g0/1\n switchport mode trunk`, verification: 'show vlan brief',
+                connections: [ { local_inf: 'G0/1', remote_dev: 'core-switch', remote_inf: 'G0/1'}, { local_inf: 'Fa0/1', remote_dev: 'pc-finance-01', remote_inf: 'Fa0'}, { local_inf: 'Fa0/24', remote_dev: 'finance-server', remote_inf: 'Fa0'} ]
+            },
+            'hr-switch': { name: 'HR-SW', type: '2960', zone: 'enterprise-campus', icon: 'switch', position: { top: '40%', left: '32.5%' },
+                info: 'Access switch for HR (VLAN 20)', config: `hostname FinMark-HR-SW\ninterface range f0/1 - 23\n switchport mode access\n switchport access vlan 20\ninterface g0/1\n switchport mode trunk`, verification: 'show vlan brief',
+                connections: [ { local_inf: 'G0/1', remote_dev: 'core-switch', remote_inf: 'G0/2'}, { local_inf: 'Fa0/1', remote_dev: 'pc-hr-01', remote_inf: 'Fa0'}, { local_inf: 'Fa0/24', remote_dev: 'hr-server', remote_inf: 'Fa0'} ]
+            },
+            'ops-switch': { name: 'Ops-SW', type: '2960', zone: 'enterprise-campus', icon: 'switch', position: { top: '40%', left: '50%' },
+                info: 'Access switch for Operations (VLAN 30)', config: `hostname FinMark-Operations-SW\ninterface range f0/1 - 23\n switchport mode access\n switchport access vlan 30\ninterface g0/1\n switchport mode trunk`, verification: 'show vlan brief',
+                connections: [ { local_inf: 'G0/1', remote_dev: 'core-switch', remote_inf: 'G0/3'}, { local_inf: 'Fa0/1', remote_dev: 'pc-ops-01', remote_inf: 'Fa0'}, { local_inf: 'Fa0/24', remote_dev: 'ops-server', remote_inf: 'Fa0'} ]
+            },
+            'it-switch': { name: 'IT-SW', type: '2960', zone: 'enterprise-campus', icon: 'switch', position: { top: '40%', left: '67.5%' },
+                info: 'Access switch for IT (VLAN 40)', config: `hostname FinMark-IT-SW\ninterface range f0/1 - 23\n switchport mode access\n switchport access vlan 40\ninterface g0/1\n switchport mode trunk`, verification: 'show vlan brief',
+                connections: [ { local_inf: 'G0/1', remote_dev: 'core-switch', remote_inf: 'G0/4'}, { local_inf: 'Fa0/1', remote_dev: 'pc-it-01', remote_inf: 'Fa0'}, { local_inf: 'Fa0/24', remote_dev: 'database-server', remote_inf: 'Fa0'} ]
+            },
+            'dmz-switch': { name: 'DMZ-SW', type: '2960', zone: 'enterprise-campus', icon: 'switch', position: { top: '40%', left: '85%' },
+                info: 'Access switch for DMZ (VLAN 50)', config: `hostname FinMark-DMZ-SW\ninterface range f0/1 - 23\n switchport mode access\n switchport access vlan 50\ninterface g0/1\n switchport mode trunk`, verification: 'show vlan brief',
+                connections: [ { local_inf: 'G0/1', remote_dev: 'core-switch', remote_inf: 'G0/5'}, { local_inf: 'Fa0/1', remote_dev: 'web-server-1', remote_inf: 'Fa0'}, { local_inf: 'Fa0/2', remote_dev: 'web-server-2', remote_inf: 'Fa0'} ]
+            },
+            // End Devices
+            'pc-finance-01': { name: 'PC-Finance-01', type: 'PC', zone: 'enterprise-campus', icon: 'pc', position: { top: '75%', left: '15%' }, info: 'Finance Dept', config: 'IP: 10.0.10.10\nGW: 10.0.10.1' },
+            'finance-server': { name: 'Finance-Server', type: 'Server', zone: 'enterprise-campus', icon: 'server', position: { top: '85%', left: '15%' }, info: 'Finance Dept', config: 'IP: 10.0.10.50\nGW: 10.0.10.1' },
+            'pc-hr-01': { name: 'PC-HR-01', type: 'PC', zone: 'enterprise-campus', icon: 'pc', position: { top: '75%', left: '32.5%' }, info: 'HR Dept', config: 'IP: 10.0.20.10\nGW: 10.0.20.1' },
+            'hr-server': { name: 'HR-Server', type: 'Server', zone: 'enterprise-campus', icon: 'server', position: { top: '85%', left: '32.5%' }, info: 'HR Dept', config: 'IP: 10.0.20.50\nGW: 10.0.20.1' },
+            'pc-ops-01': { name: 'PC-Ops-01', type: 'PC', zone: 'enterprise-campus', icon: 'pc', position: { top: '75%', left: '50%' }, info: 'Ops Dept', config: 'IP: 10.0.30.10\nGW: 10.0.30.1' },
+            'ops-server': { name: 'Ops-Server', type: 'Server', zone: 'enterprise-campus', icon: 'server', position: { top: '85%', left: '50%' }, info: 'Ops Dept', config: 'IP: 10.0.30.50\nGW: 10.0.30.1' },
+            'pc-it-01': { name: 'PC-IT-01', type: 'PC', zone: 'enterprise-campus', icon: 'pc', position: { top: '75%', left: '67.5%' }, info: 'IT Dept', config: 'IP: 10.0.40.10\nGW: 10.0.40.1' },
+            'database-server': { name: 'Database-Server', type: 'Server', zone: 'enterprise-campus', icon: 'server', position: { top: '85%', left: '67.5%' }, info: 'IT Dept', config: 'IP: 10.0.40.50\nGW: 10.0.40.1' },
+            'web-server-1': { name: 'Web-Server-1', type: 'Server', zone: 'enterprise-campus', icon: 'server', position: { top: '75%', left: '85%' }, info: 'DMZ', config: 'IP: 10.0.50.10\nGW: 10.0.50.1' },
+            'web-server-2': { name: 'Web-Server-2', type: 'Server', zone: 'enterprise-campus', icon: 'server', position: { top: '85%', left: '85%' }, info: 'DMZ', config: 'IP: 10.0.50.11\nGW: 10.0.50.1' }
+        };
+        
+        const cableConnections = [
+            { from: 'core-switch', to: 'finance-switch', type: 'trunk' }, { from: 'core-switch', to: 'hr-switch', type: 'trunk' },
+            { from: 'core-switch', to: 'ops-switch', type: 'trunk' }, { from: 'core-switch', to: 'it-switch', type: 'trunk' },
+            { from: 'core-switch', to: 'dmz-switch', type: 'trunk' }, { from: 'core-switch', to: 'firewall', type: 'routed' },
+            { from: 'firewall', to: 'internet-cloud', type: 'internet' },
+            { from: 'finance-switch', to: 'pc-finance-01', type: 'access' }, { from: 'finance-switch', to: 'finance-server', type: 'access' },
+            { from: 'hr-switch', to: 'pc-hr-01', type: 'access' }, { from: 'hr-switch', to: 'hr-server', type: 'access' },
+            { from: 'ops-switch', to: 'pc-ops-01', type: 'access' }, { from: 'ops-switch', to: 'ops-server', type: 'access' },
+            { from: 'it-switch', to: 'pc-it-01', type: 'access' }, { from: 'it-switch', to: 'database-server', type: 'access' },
+            { from: 'dmz-switch', to: 'web-server-1', type: 'access' }, { from: 'dmz-switch', to: 'web-server-2', type: 'access' },
+        ];
+        
+        const icons = {
+            'switch-l3': `<svg class="device-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M7 12h10m-8 4h6M7 8h2m4 0h2m-4-2v2m4-2v2"/></svg>`,
+            'switch': `<svg class="device-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="4" width="20" height="8" rx="2"/><path d="M7 8h1m4 0h1m4 0h1"/></svg>`,
+            'firewall': `<svg class="device-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10zM12 11v0"/></svg>`,
+            'cloud': `<svg class="device-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"/></svg>`,
+            'pc': `<svg class="device-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8m-4-4v4"/></svg>`,
+            'server': `<svg class="device-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="2" width="20" height="8" rx="2" ry="2"/><rect x="2" y="14" width="20" height="8" rx="2" ry="2"/><path d="M6 6h.01M6 18h.01"/></svg>`
+        };
+
+        function renderDevices() {
+            Object.keys(deviceData).forEach(id => {
+                const device = deviceData[id];
+                const zoneContainer = document.getElementById(device.zone);
+                if (!zoneContainer) return;
+
+                const deviceEl = document.createElement('div');
+                deviceEl.id = id;
+                deviceEl.className = 'device';
+                deviceEl.style.top = device.position.top;
+                deviceEl.style.left = device.position.left;
+                deviceEl.style.transform = 'translate(-50%, -50%)';
+                
+                deviceEl.innerHTML = `
+                    ${icons[device.icon] || icons['pc']}
+                    <div class="device-label">${device.name}</div>
+                    <div class="device-info">${device.type}</div>
+                `;
+                
+                deviceEl.addEventListener('click', () => showModal(id));
+                zoneContainer.appendChild(deviceEl);
+            });
+        }
+        
+        function renderCables() {
+            const cableLayer = document.getElementById('cable-layer');
+            cableLayer.innerHTML = '';
+            const diagramRect = document.getElementById('network-diagram').getBoundingClientRect();
+        
+            cableConnections.forEach(conn => {
+                const fromEl = document.getElementById(conn.from);
+                const toEl = document.getElementById(conn.to);
+                
+                if (fromEl && toEl) {
+                    const fromRect = fromEl.getBoundingClientRect();
+                    const toRect = toEl.getBoundingClientRect();
+                    const x1 = fromRect.left + fromRect.width / 2 - diagramRect.left;
+                    const y1 = fromRect.top + fromRect.height / 2 - diagramRect.top;
+                    const x2 = toRect.left + toRect.width / 2 - diagramRect.left;
+                    const y2 = toRect.top + toRect.height / 2 - diagramRect.top;
+        
+                    const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                    line.setAttribute('x1', x1); line.setAttribute('y1', y1);
+                    line.setAttribute('x2', x2); line.setAttribute('y2', y2);
+                    line.setAttribute('class', `cable cable-${conn.type}`);
+                    cableLayer.appendChild(line);
+                }
+            });
+        }
+        
+        const modal = document.getElementById('info-modal');
+        function showModal(deviceId) {
+            const device = deviceData[deviceId];
+            modal.querySelector('#modal-title').textContent = device.name;
+            modal.querySelector('#modal-tab-info').innerHTML = `<p class="text-gray-400">${device.info || ''}</p>`;
+            modal.querySelector('#modal-config-code').textContent = device.config || '';
+            modal.querySelector('#modal-tab-verification').innerHTML = `<pre><code>${device.verification || ''}</code></pre>`;
+            let interfacesHtml = `<p class="text-gray-400">No manageable interfaces.</p>`;
+            if (device.connections) {
+                interfacesHtml = `<div class="overflow-x-auto"><table class="w-full text-sm text-left text-gray-400">
+                    <thead class="text-xs text-gray-400 uppercase bg-gray-700/50"><tr><th class="px-6 py-3">Local Int</th><th class="px-6 py-3">Connected To</th><th class="px-6 py-3">Remote Int</th></tr></thead><tbody>`;
+                device.connections.forEach(c => {
+                    interfacesHtml += `<tr class="border-b border-gray-700"><td class="px-6 py-4 font-mono">${c.local_inf}</td><td class="px-6 py-4">${deviceData[c.remote_dev].name}</td><td class="px-6 py-4 font-mono">${c.remote_inf}</td></tr>`;
+                });
+                interfacesHtml += `</tbody></table></div>`;
+            }
+            modal.querySelector('#modal-tab-interfaces').innerHTML = interfacesHtml;
+            modal.classList.remove('hidden');
+            switchModalTab(modal.querySelector('.modal-tab'));
+        }
+
+        function switchModalTab(tabButton) {
+            modal.querySelectorAll('.modal-tab').forEach(t => t.classList.remove('active'));
+            modal.querySelectorAll('.modal-tab-content').forEach(c => c.classList.remove('active'));
+            tabButton.classList.add('active');
+            modal.querySelector(`#${tabButton.dataset.target}`).classList.add('active');
+        }
+
+        modal.querySelectorAll('.modal-tab').forEach(b => b.addEventListener('click', () => switchModalTab(b)));
+        modal.querySelector('#close-modal-btn').addEventListener('click', () => modal.classList.add('hidden'));
+        modal.addEventListener('click', e => { if (e.target === modal) modal.classList.add('hidden'); });
+        modal.querySelector('#copy-config-btn').addEventListener('click', () => {
+             navigator.clipboard.writeText(modal.querySelector('#modal-config-code').textContent);
+        });
+
+        let isSimulating = false;
+        document.getElementById('run-simulation-btn').addEventListener('click', async () => {
+            if (isSimulating) return; isSimulating = true;
+            const btn = document.getElementById('run-simulation-btn');
+            btn.disabled = true; btn.classList.add('opacity-50', 'cursor-not-allowed');
+            const simStatus = document.getElementById('simulation-status');
+
+            const tests = [
+                { name: "Finance PC to HR PC (Inter-VLAN Routing)", path: ['pc-finance-01', 'finance-switch', 'core-switch', 'hr-switch', 'pc-hr-01'] },
+                { name: "Ops PC to Internet", path: ['pc-ops-01', 'ops-switch', 'core-switch', 'firewall', 'internet-cloud'] },
+                { name: "Internet to DMZ Web Server", path: ['internet-cloud', 'firewall', 'core-switch', 'dmz-switch', 'web-server-1'] },
+                { name: "Finance PC to IT DB (ACL Check)", path: ['pc-finance-01', 'finance-switch', 'core-switch', 'it-switch', 'database-server'] }
+            ];
+            
+            for (const test of tests) {
+                simStatus.textContent = `Running: ${test.name}...`;
+                await animatePacket(test.path);
+                simStatus.textContent = `${test.name} - Complete!`;
+                await new Promise(r => setTimeout(r, 1500));
+            }
+            
+            simStatus.textContent = "Simulation finished.";
+            isSimulating = false; btn.disabled = false;
+            btn.classList.remove('opacity-50', 'cursor-not-allowed');
+        });
+
+        async function animatePacket(path) {
+            const packet = document.createElement('div');
+            packet.className = 'packet';
+            document.getElementById('network-diagram').appendChild(packet);
+            const diagram = document.getElementById('network-diagram');
+
+            for (let i = 0; i < path.length - 1; i++) {
+                const startNode = document.getElementById(path[i]);
+                const endNode = document.getElementById(path[i+1]);
+                if (!startNode || !endNode) continue;
+                
+                const diagramRect = diagram.getBoundingClientRect();
+                const startRect = startNode.getBoundingClientRect();
+                const endRect = endNode.getBoundingClientRect();
+                const startX = startRect.left + startRect.width / 2 - diagramRect.left;
+                const startY = startRect.top + startRect.height / 2 - diagramRect.top;
+                const endX = endRect.left + endRect.width / 2 - diagramRect.left;
+                const endY = endRect.top + endRect.height / 2 - diagramRect.top;
+                
+                packet.style.transform = `translate(${startX - 8}px, ${startY - 8}px)`;
+                packet.style.opacity = '1';
+
+                await new Promise(resolve => {
+                    packet.animate([
+                        { transform: `translate(${startX - 8}px, ${startY - 8}px)` },
+                        { transform: `translate(${endX - 8}px, ${endY - 8}px)` }
+                    ], { duration: 1000, easing: 'linear' }).onfinish = resolve;
+                });
+            }
+            packet.remove();
+        }
+        
+        renderDevices();
+        const resizeObserver = new ResizeObserver(() => renderCables());
+        resizeObserver.observe(document.getElementById('network-diagram'));
+        window.addEventListener('resize', renderCables);
+        setTimeout(renderCables, 100);
+    });
+    </script>
+</body>
+</html>

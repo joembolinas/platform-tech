@@ -1,0 +1,3 @@
+test_scenario,description,response_time_ms,success_rate,recovery_time_sec
+primary_server_failure,Primary server failure,,%,23
+network_partition,Network partition recovery,,%,10

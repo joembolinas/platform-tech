@@ -1,0 +1,7 @@
+test_type,description,result,details
+connection_limit,Check current connections,PASS,0 connections
+ssl_tls,Test HTTPS connectivity,PASS,Connection successful
+monitoring,Test http://localhost:8080/health,INFO,Not configured (demo mode)
+monitoring,Test http://localhost:8080/metrics,INFO,Not configured (demo mode)
+monitoring,Test http://localhost:8080/status,INFO,Not configured (demo mode)
+logging,Create log files,PASS,Log directory accessible
